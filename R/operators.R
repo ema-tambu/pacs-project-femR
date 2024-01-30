@@ -302,7 +302,7 @@ setOldClass(c("ReactionOperator", "DifferentialOp"))
 #' reaction <- 2*f
 #' }
 `*.Function` <- function(e1,e2){
-            if(!is(e1,"numeric")) stop("First argument must be a scalar!")
+          if(!is(e1,"numeric"))  stop("First argument must be a scalar!")
             .ReactionCtr$new(
               tokens = "reaction",
               params = list(reaction = e1),
