@@ -103,14 +103,11 @@ template <int M, int N, int R> class R_PDE : public PDEWrapper {
         } break;
          case pde_type::non_linear_reaction: {
             SMatrix<M> K = Rcpp::as<DMatrix<double>>(pde_parameters_["diffusion"]);
-            SVector<3> binomial_coeff = Rcpp::as<DVector<double>>(pde_parameters_["binomial"]);
-            double alpha_ = binomial_coeff[0];
-            double a_ = binomial_coeff[1];
-            double b_ = binomial_coeff[2];
-            this -> h_ = [alpha_, a_, b_](SVector<N> x, SVector<1> ff) -> double {return alpha_*(a_ + b_*ff[0]);};
-	    NonLinearReaction<N, ReferenceBasis> non_linear_reaction_(h_);
+            DVector<double> coeffs = Rcpp::as<DVector<double>>(pde_parameters_["binomial"]);
+            this -> h_ = [coeffs](SVector<N> x, SVector<1> ff) -> double {return coeffs[0]*(coeffs[1] + coeffs[2]*ff[0]);};
+	    NonLinearReaction<N, ReferenceBasis> non_linear_reaction_(this->h_);
             auto L = diffusion<FEM>(K) + advection<FEM>(b) + reaction<FEM>(c) + non_linear_op<FEM>(non_linear_reaction_);
-            pde_ = PDEType<decltype(L)>(domain_, L, h_);
+            pde_ = PDEType<decltype(L)>(domain_, L, this->h_);
         } break;
      }
     }
@@ -118,7 +115,7 @@ template <int M, int N, int R> class R_PDE : public PDEWrapper {
     void set_dirichlet_bc(const DMatrix<double>& data) { pde_.set_dirichlet_bc(data); }
     void set_forcing(const DMatrix<double>& data) { pde_.set_forcing(data); }
     void set_initial_condition(const DVector<double>& data) {
-        if (pde_type_ != pde_type::second_order_parabolic) throw "set_initial_condition is for space-time pdes only.";
+        //if (pde_type_ != pde_type::second_order_parabolic) throw "set_initial_condition is for space-time pdes only.";
         pde_.set_initial_condition(data);
     }
     // getters

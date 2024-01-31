@@ -122,14 +122,14 @@ parse_pde_parameters <- function(DifferentialOp){
     if(DifferentialOp$tokens[i] != "non_linear_reaction")
       pde_parameters[[DifferentialOp$tokens[i]]] <- DifferentialOp$params[[DifferentialOp$tokens[i]]]
   }
-  if(pde_type == pde_type_list$non_linear_reaction & 
-     names(DifferentialOp$params)[which(DifferentialOp$tokens == "non_linear_reaction")] == "binomial")
+  if(pde_type == pde_type_list$non_linear_reaction && 
+     names(DifferentialOp$params)[which(DifferentialOp$tokens == "non_linear_reaction")] == "binomial"){
     pde_parameters[["binomial"]] <- as.matrix(DifferentialOp$params[["binomial"]]) 
-  
+  }
   if(pde_type == pde_type_list$parabolic)
     pde_parameters[["time_nodes"]] <- as.vector(DifferentialOp$Function()$FunctionSpace()$mesh()$time_nodes())
   
-  if( (pde_type == pde_type_list$parabolic | pde_type == pde_type_list$non_linear_reaction) & 
+  if( (pde_type == pde_type_list$parabolic | pde_type == pde_type_list$non_linear_reaction) && 
       is(pde_parameters[["diffusion"]], "numeric"))
     pde_parameters[["diffusion"]] <- pde_parameters[["diffusion"]]*matrix(c(1,0,0,1), nrow=2, ncol=2, byrow=T)
   
@@ -163,11 +163,12 @@ make_pde <- function(DifferentialOp) {
 #' @return A R6 class representing a PDE.
 #' @rdname pde
 #' @export 
-setGeneric("Pde", function(DifferentialOp, forcing) standardGeneric("Pde"))
+setGeneric("Pde", function(DifferentialOp, forcing, boundary_condition) standardGeneric("Pde"))
 
 #' @rdname pde
-setMethod("Pde", signature=c(DifferentialOp="DifferentialOp", forcing="function"),
-          function(DifferentialOp,forcing){
+setMethod("Pde", signature=c(DifferentialOp="DifferentialOp", forcing="function", 
+                             boundary_condition="missing"),
+          function(DifferentialOp,forcing, boundary_condition){
             
             pde_type = extract_pde_type(DifferentialOp)
             cpp_handler <- make_pde(DifferentialOp)
@@ -179,6 +180,10 @@ setMethod("Pde", signature=c(DifferentialOp="DifferentialOp", forcing="function"
               cpp_handler$set_forcing(as.matrix(forcing(quad_nodes, times)))
             }else{
               cpp_handler$set_forcing(as.matrix(forcing(quad_nodes)))
+            }
+            
+            if(pde_type == pde_type_list$non_linear_reaction){
+              cpp_handler$set_initial_condition(matrix(0., nrow=nrow(cpp_handler$dofs_coordinates()), ncol=1))
             }
             
             ## initialize solver 
@@ -195,8 +200,9 @@ setMethod("Pde", signature=c(DifferentialOp="DifferentialOp", forcing="function"
 })
 
 #' @rdname pde
-setMethod("Pde", signature=c(DifferentialOp="DifferentialOp", forcing="numeric"),
-          function(DifferentialOp,forcing){
+setMethod("Pde", signature=c(DifferentialOp="DifferentialOp", forcing="numeric",
+                             boundary_condition="missing"),
+          function(DifferentialOp, forcing, boundary_condition){
             pde_type = extract_pde_type(DifferentialOp)
             
             forcing_ <- NULL
@@ -211,4 +217,57 @@ setMethod("Pde", signature=c(DifferentialOp="DifferentialOp", forcing="numeric")
             }
             
             return(Pde(DifferentialOp,forcing_))
+})
+
+#' @rdname pde
+setMethod("Pde", signature=c(DifferentialOp="DifferentialOp", forcing="function", 
+                             boundary_condition="function"),
+          function(DifferentialOp, forcing, boundary_condition){
+            pde_type = extract_pde_type(DifferentialOp)
+            cpp_handler <- make_pde(DifferentialOp)
+            
+            quad_nodes <- cpp_handler$quadrature_nodes()
+            ## evaluate forcing term on quadrature nodes
+            if(pde_type == pde_type_list$parabolic) {
+              times <- DifferentialOp$Function()$FunctionSpace()$mesh()$time_nodes()
+              cpp_handler$set_forcing(as.matrix(forcing(quad_nodes, times)))
+            }else{
+              cpp_handler$set_forcing(as.matrix(forcing(quad_nodes)))
+            }
+            
+            dirichletBC_ <- as.matrix(boundary_condition(cpp_handler$dofs_coordinates()))
+            cpp_handler$set_dirichlet_bc(dirichletBC_)
+            
+            if(pde_type == pde_type_list$non_linear_reaction){
+              cpp_handler$set_initial_condition(matrix(0., nrow=nrow(cpp_handler$dofs_coordinates()), ncol=1))
+            }
+
+            cpp_handler$init()
+            is_parabolic = pde_type == pde_type_list$parabolic
+            
+            ## return
+            .PdeCtr$new(is_dirichletBC_set = TRUE,
+                        is_initialCondition_set = FALSE,
+                        is_parabolic = is_parabolic,
+                        cpp_handler = cpp_handler,
+                        DifferentialOp = DifferentialOp)
+})
+
+#' @rdname pde
+setMethod("Pde", signature=c(DifferentialOp = "DifferentialOp", forcing = "function", 
+                             boundary_condition = "numeric"),
+          function(DifferentialOp, forcing, boundary_condition){
+            pde_type = extract_pde_type(DifferentialOp)
+            
+            boundary_condition_ <- NULL
+            if(pde_type != pde_type_list$parabolic){
+              boundary_condition_ <- function(points){
+                return( matrix(boundary_condition, nrow=nrow(points), ncol=1))
+              }
+            }else{
+              boundary_condition_ <- function(points, times){
+                return( matrix(boundary_condition, nrow=nrow(points), ncol=length(times)))
+              }  
+            }
+            return(Pde(DifferentialOp, forcing, boundary_condition_))
 })
