@@ -8,7 +8,7 @@
 \usage{
 Pde(DifferentialOp, forcing)
 
-\S4method{Pde}{DifferentialOp,function}(DifferentialOp, forcing)
+\S4method{Pde}{DifferentialOp,`function`}(DifferentialOp, forcing)
 
 \S4method{Pde}{DifferentialOp,numeric}(DifferentialOp, forcing)
 }

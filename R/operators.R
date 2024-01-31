@@ -167,9 +167,27 @@ setOldClass(c("DifferentialOp", "R6"))
 #' @name times_DifferentialOps
 #' @export 
 `*.DifferentialOp` <- function(e1,e2){
-            if (!is.numeric(e1)) stop("bad product")
-            e2$params[[1]] <- e1*e2$params[[1]]
-            e2
+            if (is.numeric(e1) & !is(e2, "Binomial")){
+              e2$params[[1]] <- e1*e2$params[[1]]
+              e2
+            }else if(is.numeric(e1) & is(e2, "Binomial")){
+              e2$params[[1]][1] <- e1*e2$params[[1]][1]
+              e2
+            }else if( (is(e1, "Binomial") & is(e2, "ReactionOperator"))){ # [param*(A+B*f)]*(c*f) 
+              .NonLinearReaction$new(params=list(binomial = c( e1$params[[1]][1]*e2$params[[1]], 
+                                                              e1$params[[1]][2:length(e1$params[[1]])])), 
+                                     tokens = "non_linear_reaction",
+                                     Function=e1$Function()
+              )
+              
+            }else if((is(e2, "Binomial") & is(e1, "ReactionOperator"))){ # (c*f)*[param*(A+B*f)]
+              .NonLinearReaction$new(params=list(binomial = c( e2$params[[1]][1]*e1$params[[1]], 
+                                                               e2$params[[1]][2:length(e2$params[[1]])])), 
+                                     tokens = "non_linear_reaction",
+                                     Function=e1$Function()
+              )
+            }else
+              stop("Wrong input arguments.")
 }
   
 ## diffusion term
@@ -302,12 +320,35 @@ setOldClass(c("ReactionOperator", "DifferentialOp"))
 #' reaction <- 2*f
 #' }
 `*.Function` <- function(e1,e2){
-          if(!is(e1,"numeric"))  stop("First argument must be a scalar!")
+          if(is(e1,"numeric")){
             .ReactionCtr$new(
               tokens = "reaction",
               params = list(reaction = e1),
               Function = e2
             )
+          }else if(is(e2, "numeric")){
+            .ReactionCtr$new(
+              tokens = "reaction",
+              params = list(reaction = e2),
+              Function = e1
+            )
+          }else if(is(e1, "Binomial") & is(e2, "Function")){
+            tmp <- .ReactionCtr$new(
+              tokens = "reaction",
+              params = list(reaction = 1.),
+              Function = e2
+            )
+            `*.DifferentialOp`(e1,tmp)
+          }else if(is(e2, "Binomial") & is(e1, "Function")){
+            tmp <- .ReactionCtr$new(
+              tokens = "reaction",
+              params = list(reaction = 1.),
+              Function = e1
+            )
+            `*.DifferentialOp`(tmp,e2)
+          }else
+            stop("Wrong input arguments.")
+  
 }
 
 .TimeDerivativeCtr <- R6Class("TimeDerivative",

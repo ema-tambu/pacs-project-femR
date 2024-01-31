@@ -1,44 +1,41 @@
-# param * (1 +  F) param costante , F Function
-.Binomial <- R6Class("Binomial",
-                     private = list(
-                      param_ = 1.0, 
-                      Function_ = "Function"
-                     ),
+.NonLinearReaction <- R6Class("NonLinearReaction",
+                              inherit = .DifferentialOpCtr)
+setOldClass(c("NonLinearReaction" , "DifferentialOp"))
+
+# param * (1 -  Function) param costante , F Function
+# ideale: alpha * (A + B * F) 
+# IDEA -> Binomial eredita da DifferentialOp quindi tutte le operazioni sono disponibili ...
+# a questo punto nel prodotto per DifferentialOp.. metti un if/else per caso e1==Binomial/e2==Binomial -> NonLinearReaction !
+# in questo modo in futuro potrai gestire K(x,u)*u beta(x,u) :)
+.Binomial <- R6Class("Binomial", inherit = .DifferentialOpCtr,
                      public = list(
-                       initialize = function(param, Function){
-                         private$param_ <- param
-                         private$Function_ <- Function
-                       },
-                       Function = function(){
-                         private$Function_
-                       },
-                       param = function(){
-                         private$param_
+                       initialize = function(params = c(1.,1.,1.), Function){
+                         super$initialize(tokens = "binomial", 
+                                          params = list(params),
+                                          Function = Function)
                        }
                      )
 )
 
+setOldClass(c("Binomial", "NonLinearReaction"))
+
+# (A-F) // (F-A) 
 #' @export
 `-.Function` <- function(e1, e2){
   if(is(e1, "numeric") & is(e2, "Function"))
-    .Binomial$new(e1, e2)
+    .Binomial$new(params = c(1.,1.,-1), Function = e2) 
   else if(is(e2, "numeric") & is(e1, "Function"))
-    .Binomial$new(e2, e1)
+    .Binomial$new(params = c(1.,-1.,1.), Function = e1)
 }
 
-.NonLinearReaction <- R6Class("NonLinearReaction",
-                              inherit = .DifferentialOpCtr)
+# (A+F) // (F+A) 
 #' @export
-`*.Binomial` <- function(e1, e2){
-  if(is(e1, "ReactionOperator") & is(e2, "Binomial") & 
-     identical(e1$Function(), e2$Function())){
-    .NonLinearReaction$new(params=e1$params[[1]]*e2$param(), # (alpha*f) * [alpha2*(1-f)]
-                           tokens = "non_linear_reaction",
-                           Function=e1$Function()) # alpha * (1-f) * f
-  }else if(is(e1, "Binomial") & is(e2, "Function") & 
-           identical(e1$Function(), e2$Function())){
-    .NonLinearReaction$new(params=e1$params[[1]]*e2$param(), # alpha*(1-f)*f)
-                           tokens = "non_linear_reaction",
-                           Function=e1$Function()) # alpha * (1-f) * f
-  }
+`+.Function` <- function(e1, e2){
+  if(is(e1, "numeric") & is(e2, "Function"))
+    .Binomial$new(Function = e2) #
+  else if(is(e2, "numeric") & is(e1, "Function"))
+    .Binomial$new(Function = e1)
 }
+
+# casi (c*f)*[alpha*(A-B*F)] 
+#      (c*f)*[alpha*(A+B*F)] in operators.R :)
