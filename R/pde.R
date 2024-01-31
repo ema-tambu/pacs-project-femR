@@ -1,5 +1,6 @@
 
-pde_type_list <- list("laplacian" = 1, "elliptic" = 2, "parabolic" = 3)
+pde_type_list <- list("laplacian" = 1, "elliptic" = 2, "parabolic" = 3, 
+                      "non_linear_reaction" = 4)
 
 # Pde Class wraps C++ R_PDE class
 .PdeCtr <- R6Class("Pde",
@@ -100,7 +101,9 @@ extract_pde_type <- function(DifferentialOp) {
   if ("time" %in% names(DifferentialOp$params)) {
     return(pde_type_list$parabolic)
   }
-  if ("diffusion" %in% names(DifferentialOp$params) && !is.matrix(DifferentialOp$params$diffusion)) {
+  if("binomial" %in% names(DifferentialOp$params))
+    return(pde_type_list$non_linear_reaction)
+  if ("diffusion" %in% names(DifferentialOp$params) & !is.matrix(DifferentialOp$params$diffusion)) {
     return(pde_type_list$laplacian)
   }
   return(pde_type_list$elliptic)
@@ -116,13 +119,18 @@ parse_pde_parameters <- function(DifferentialOp){
   pde_parameters$reaction  <- 0.0
   
   for (i in 1:length(DifferentialOp$params)) {
-    pde_parameters[[DifferentialOp$tokens[i]]] <- DifferentialOp$params[[DifferentialOp$tokens[i]]]
+    if(DifferentialOp$tokens[i] != "non_linear_reaction")
+      pde_parameters[[DifferentialOp$tokens[i]]] <- DifferentialOp$params[[DifferentialOp$tokens[i]]]
   }
+  if(pde_type == pde_type_list$non_linear_reaction & 
+     names(DifferentialOp$params)[which(DifferentialOp$tokens == "non_linear_reaction")] == "binomial")
+    pde_parameters[["binomial"]] <- as.matrix(DifferentialOp$params[["binomial"]]) 
   
   if(pde_type == pde_type_list$parabolic)
     pde_parameters[["time_nodes"]] <- as.vector(DifferentialOp$Function()$FunctionSpace()$mesh()$time_nodes())
   
-  if(pde_type == pde_type_list$parabolic & is(pde_parameters[["diffusion"]], "numeric"))
+  if( (pde_type == pde_type_list$parabolic | pde_type == pde_type_list$non_linear_reaction) & 
+      is(pde_parameters[["diffusion"]], "numeric"))
     pde_parameters[["diffusion"]] <- pde_parameters[["diffusion"]]*matrix(c(1,0,0,1), nrow=2, ncol=2, byrow=T)
   
   return(pde_parameters)

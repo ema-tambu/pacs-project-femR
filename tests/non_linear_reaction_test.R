@@ -1,3 +1,4 @@
+devtools::document()
 library(femR)
 
 ## load domain data and generate mesh object
@@ -20,6 +21,7 @@ f <- Function(Vh)
 
 alpha <- 0.9
 L <- -laplace(f) + alpha*f*(1-f) # problema alpha * (1-f) * f
+
 ## forcing term
 u <- function(points){
   return(8.*pi^2* sin( 2.* pi * points[,1]) * sin(2.*pi* points[,2]) ) 
@@ -28,3 +30,11 @@ u <- function(points){
 g <- function(points){
   return(rep(0, times=nrow(points)))
 }
+
+## Pde constructor
+pde <- Pde(L,u)
+pde$set_boundary_condition(boundary_condition =0.,
+                           type = "dirichlet")
+
+## solve problem
+pde$solve()

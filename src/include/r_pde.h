@@ -36,12 +36,16 @@ using fdapde::core::Mesh;
 using fdapde::core::PDE;
 using fdapde::core::pde_ptr;
 using fdapde::core::reaction;
+using fdapde::core::LagrangianBasis;
+using fdapde::core::non_linear_op;
+using fdapde::core::NonLinearReaction;
 
 // supported pde instantiations
 enum pde_type {
     simple_laplacian,        // \mu * \Delta f
     second_order_elliptic,   // div(K * \nabla f) + dot(b, \nabla f) + c * f
-    second_order_parabolic   // df/dt + div(K * \nabla f) + dot(b, \nabla f) + c * f
+    second_order_parabolic,  // df/dt + div(K * \nabla f) + dot(b, \nabla f) + c * f
+    non_linear_reaction      // div(K * \nabla f) + dot(b, \nabla f) + c*f + alpha*f(A + B*f) 
 };
 
 // base non-templated class holding a type-erasure wrapper for a general pde object
@@ -57,12 +61,15 @@ template <int M, int N, int R> class R_PDE : public PDEWrapper {
    private:
     using DomainType = Mesh<M, N>;
     using QuadratureRule = Integrator<FEM, DomainType::local_dimension, R>;
+    using ReferenceBasis = typename LagrangianBasis<DomainType, R>:: ReferenceBasis;
     template <typename L> using PDEType = PDE<DomainType, L, DMatrix<double>, FEM, fem_order<R>>;
+    
 
     // internal data
     DomainType domain_ {};           // triangulation
     QuadratureRule integrator_ {};   // quadrature rule (exact for the provided fem order)
     int pde_type_;                   // one of the pde_type enum values
+    std::function<double(SVector<N>, SVector<1>)> h_; 
    public:
     // constructor
     R_PDE(Rcpp::Environment mesh, int pde_type, const Rcpp::Nullable<Rcpp::List>& pde_parameters) :
@@ -94,7 +101,18 @@ template <int M, int N, int R> class R_PDE : public PDEWrapper {
             auto L = dt<FEM>() + diffusion<FEM>(K) + advection<FEM>(b) + reaction<FEM>(c);
             pde_ = PDEType<decltype(L)>(domain_, time_nodes, L);
         } break;
-        }
+         case pde_type::non_linear_reaction: {
+            SMatrix<M> K = Rcpp::as<DMatrix<double>>(pde_parameters_["diffusion"]);
+            SVector<3> binomial_coeff = Rcpp::as<DVector<double>>(pde_parameters_["binomial"]);
+            double alpha_ = binomial_coeff[0];
+            double a_ = binomial_coeff[1];
+            double b_ = binomial_coeff[2];
+            this -> h_ = [alpha_, a_, b_](SVector<N> x, SVector<1> ff) -> double {return alpha_*(a_ + b_*ff[0]);};
+	    NonLinearReaction<N, ReferenceBasis> non_linear_reaction_(h_);
+            auto L = diffusion<FEM>(K) + advection<FEM>(b) + reaction<FEM>(c) + non_linear_op<FEM>(non_linear_reaction_);
+            pde_ = PDEType<decltype(L)>(domain_, L, h_);
+        } break;
+     }
     }
     // setters
     void set_dirichlet_bc(const DMatrix<double>& data) { pde_.set_dirichlet_bc(data); }

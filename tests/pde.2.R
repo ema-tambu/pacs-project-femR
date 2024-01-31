@@ -17,7 +17,7 @@ exact_solution <- function(points){
 
 ## define differential operator in its strong formulation
 f <- Function(Vh)
-L <- -laplace(f) + 0.9*f*(1-f)
+L <- -laplace(f)
 ## forcing term
 u <- function(points){
     return(8.*pi^2* sin( 2.* pi * points[,1]) * sin(2.*pi* points[,2]) ) 
