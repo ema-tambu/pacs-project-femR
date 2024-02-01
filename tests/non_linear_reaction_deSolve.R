@@ -4,17 +4,10 @@ if(!require("pacman", quietly = T)) install.packages("pacman")
 pacman::p_load("fdaPDE", "ReacTran", "devtools")
 
 if(!require("femR", quietly = T)){
-   devtools::install_github(repo="ema-tambu/pacs-project-femR/", ref="develop")
+   devtools::install_github(repo="ema-tambu/pacs-project-femR", ref="develop")
 }
-
+library(femR)
 rmse <- function(x,y){return(sqrt(mean( (x-y)^2)))}
-
-# physical domain 
-nodes <- rbind(c(0, 0), c(1, 0), c(1, 1), c(0, 1))
-edges <- rbind(c(1, 2), c(2, 3), c(3, 4), c(4,1))
-unit_square <- Domain(list(nodes=nodes, edges=edges))
-
-# 
 
 ## forcing term
 f <- function(points){
@@ -31,7 +24,7 @@ mu <- 1.
 alpha <- 1.
 #Dy    <- Dx <- -1.   # diffusion coeff, X- and Y-direction
 
-N = c(16, 32)#, 64, 128) 
+N = c(16, 32, 64, 128) 
 errors.l2 <- list("deSolve" = rep(0, times = length(N)),
                   "femR_1" = rep(0, times = length(N)),
                   "femR_2" = rep(0, times = length(N)))
@@ -42,7 +35,8 @@ times <- list("deSolve" = rep(0, times = length(N)),
 h <- rep(0, times = length(N))
 nnodes <- rep(0, times = length(N))
 
-for(i in 1:length(N)){
+i = 4
+{
   cat("------------ ", N[i], "x",N[i] , " ------------\n")
   x.grid    <- setup.grid.1D(x.up = 0, x.down = 1, N = N[i])
   y.grid    <- setup.grid.1D(x.up = 0, x.down = 1, N = N[i])
