@@ -24,7 +24,7 @@ mu <- 1.
 alpha <- 1.
 #Dy    <- Dx <- -1.   # diffusion coeff, X- and Y-direction
 
-N = c(16, 32, 64, 128) 
+N = c(16, 32, 64)#, 128) 
 errors.l2 <- list("deSolve" = rep(0, times = length(N)),
                   "femR_1" = rep(0, times = length(N)),
                   "femR_2" = rep(0, times = length(N)))
@@ -35,7 +35,8 @@ times <- list("deSolve" = rep(0, times = length(N)),
 h <- rep(0, times = length(N))
 nnodes <- rep(0, times = length(N))
 
-i = 4
+for(i in 1:length(N))
+% i = 4
 {
   cat("------------ ", N[i], "x",N[i] , " ------------\n")
   x.grid    <- setup.grid.1D(x.up = 0, x.down = 1, N = N[i])
