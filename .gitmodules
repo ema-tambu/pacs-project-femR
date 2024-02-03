@@ -1,4 +1,4 @@
 [submodule "src/core"]
 	path = src/core
 	url = https://github.com/ema-tambu/fdaPDE-core
-	branch = cran
+	branch = develop
