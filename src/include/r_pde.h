@@ -40,6 +40,8 @@ using fdapde::core::LagrangianBasis;
 using fdapde::core::non_linear_op;
 using fdapde::core::NonLinearReaction;
 
+using fdapde::core::PDEparameters;
+
 // supported pde instantiations
 enum pde_type {
     simple_laplacian,        // \mu * \Delta f
@@ -93,7 +95,11 @@ template <int M, int N, int R> class R_PDE : public PDEWrapper {
         case pde_type::second_order_elliptic: {
             SMatrix<M> K = Rcpp::as<DMatrix<double>>(pde_parameters_["diffusion"]);
             auto L = diffusion<FEM>(K) + advection<FEM>(b) + reaction<FEM>(c);
-            pde_ = PDEType<decltype(L)>(domain_, L);
+            // Send type data to the singleton that will be retrieved by the solver (for transport domination no need
+            // to pass the reaction too)
+            PDEparameters<decltype(K), decltype(b)> &PDEparams = PDEparameters<decltype(K), decltype(b)>::getInstance(K, b);
+            // pde_ = PDEType<decltype(L)>(domain_, L);
+            pde_ = PDE<DomainType, decltype(L), DMatrix<double>, FEM, fem_order<R>, decltype(K), decltype(b)>(domain_, L);
         } break;
         case pde_type::second_order_parabolic: {
             SMatrix<M> K = Rcpp::as<DMatrix<double>>(pde_parameters_["diffusion"]);
